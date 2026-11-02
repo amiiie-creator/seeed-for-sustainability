@@ -119,24 +119,67 @@
     startProjectTimer();
   }
 
-  /* Event-story rail: compact, user-controlled navigation */
+  /* Event-story rail: gentle auto-advance, pause on interaction, and manual navigation */
   var eventStrip = document.querySelector("[data-event-strip]");
   var eventPrev = document.querySelector("[data-events-prev]");
   var eventNext = document.querySelector("[data-events-next]");
+  var eventToggle = document.querySelector("[data-events-toggle]");
+  var eventCards = eventStrip ? Array.from(eventStrip.querySelectorAll(".event-card")) : [];
+  var eventIndex = 0;
+  var eventPaused = reducedMotion;
+  var eventTimer = null;
 
-  function moveEvents(direction) {
-    if (!eventStrip) return;
-    eventStrip.scrollBy({ left: direction * eventStrip.clientWidth * 0.82, behavior: reducedMotion ? "auto" : "smooth" });
+  function setEventToggle() {
+    if (!eventToggle) return;
+    eventToggle.textContent = eventPaused ? "▶" : "Ⅱ";
+    eventToggle.setAttribute("aria-pressed", String(eventPaused));
+    eventToggle.setAttribute("aria-label", eventPaused ? "Resume event carousel" : "Pause event carousel");
+    eventToggle.title = eventPaused ? "Resume automatic movement" : "Pause automatic movement";
   }
 
-  if (eventPrev) eventPrev.addEventListener("click", function () { moveEvents(-1); });
-  if (eventNext) eventNext.addEventListener("click", function () { moveEvents(1); });
-  if (eventStrip) eventStrip.addEventListener("keydown", function (event) {
-    if (event.key === "ArrowLeft") { event.preventDefault(); moveEvents(-1); }
-    if (event.key === "ArrowRight") { event.preventDefault(); moveEvents(1); }
-  });
+  function showEvent(index, announce) {
+    if (!eventStrip || !eventCards.length) return;
+    eventIndex = (index + eventCards.length) % eventCards.length;
+    eventStrip.scrollTo({ left: eventCards[eventIndex].offsetLeft, behavior: reducedMotion ? "auto" : "smooth" });
+    if (announce) eventCards[eventIndex].focus({ preventScroll: true });
+  }
 
-  /* What Seeed Provides slider */
+  function stopEventTimer() {
+    window.clearInterval(eventTimer);
+    eventTimer = null;
+  }
+
+  function startEventTimer() {
+    stopEventTimer();
+    if (eventPaused || reducedMotion || !eventCards.length) return;
+    eventTimer = window.setInterval(function () { showEvent(eventIndex + 1, false); }, 5200);
+  }
+
+  if (eventPrev) eventPrev.addEventListener("click", function () { showEvent(eventIndex - 1, false); startEventTimer(); });
+  if (eventNext) eventNext.addEventListener("click", function () { showEvent(eventIndex + 1, false); startEventTimer(); });
+  if (eventToggle) eventToggle.addEventListener("click", function () {
+    eventPaused = !eventPaused;
+    setEventToggle();
+    startEventTimer();
+  });
+  if (eventStrip) {
+    eventStrip.addEventListener("keydown", function (event) {
+      if (event.key === "ArrowLeft") { event.preventDefault(); showEvent(eventIndex - 1, true); }
+      if (event.key === "ArrowRight") { event.preventDefault(); showEvent(eventIndex + 1, true); }
+    });
+    eventStrip.addEventListener("pointerenter", stopEventTimer);
+    eventStrip.addEventListener("pointerleave", startEventTimer);
+    eventStrip.addEventListener("focusin", stopEventTimer);
+    eventStrip.addEventListener("focusout", startEventTimer);
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) stopEventTimer();
+      else startEventTimer();
+    });
+    setEventToggle();
+    startEventTimer();
+  }
+
+  /* What Seeed Supports slider */
   var capabilitySlider = document.querySelector("[data-capability-slider]");
   if (capabilitySlider) {
     var capabilityTrack = capabilitySlider.querySelector("[data-capability-track]");
@@ -144,8 +187,19 @@
     var capabilityDots = Array.from(capabilitySlider.querySelectorAll("[data-capability-dot]"));
     var capabilityPrev = capabilitySlider.querySelector("[data-capability-prev]");
     var capabilityNext = capabilitySlider.querySelector("[data-capability-next]");
+    var capabilityToggle = capabilitySlider.querySelector("[data-capability-toggle]");
     var capabilityStatus = capabilitySlider.querySelector("[data-capability-status]");
     var capabilityIndex = 0;
+    var capabilityPaused = reducedMotion;
+    var capabilityTimer = null;
+
+    function setCapabilityToggle() {
+      if (!capabilityToggle) return;
+      capabilityToggle.textContent = capabilityPaused ? "▶" : "Ⅱ";
+      capabilityToggle.setAttribute("aria-pressed", String(capabilityPaused));
+      capabilityToggle.setAttribute("aria-label", capabilityPaused ? "Resume support carousel" : "Pause support carousel");
+      capabilityToggle.title = capabilityPaused ? "Resume automatic movement" : "Pause automatic movement";
+    }
 
     function showCapability(index, announce) {
       capabilityIndex = (index + capabilitySlides.length) % capabilitySlides.length;
@@ -171,16 +225,42 @@
       }
     }
 
+    function stopCapabilityTimer() {
+      window.clearInterval(capabilityTimer);
+      capabilityTimer = null;
+    }
+
+    function startCapabilityTimer() {
+      stopCapabilityTimer();
+      if (capabilityPaused || reducedMotion) return;
+      capabilityTimer = window.setInterval(function () { showCapability(capabilityIndex + 1, false); }, 6200);
+    }
+
     if (capabilityPrev) capabilityPrev.addEventListener("click", function () { showCapability(capabilityIndex - 1, true); });
     if (capabilityNext) capabilityNext.addEventListener("click", function () { showCapability(capabilityIndex + 1, true); });
     capabilityDots.forEach(function (dot) {
       dot.addEventListener("click", function () { showCapability(Number(dot.dataset.capabilityDot), true); });
     });
+    if (capabilityToggle) capabilityToggle.addEventListener("click", function () {
+      capabilityPaused = !capabilityPaused;
+      setCapabilityToggle();
+      startCapabilityTimer();
+    });
     capabilitySlider.addEventListener("keydown", function (event) {
       if (event.key === "ArrowLeft") { event.preventDefault(); showCapability(capabilityIndex - 1, true); }
       if (event.key === "ArrowRight") { event.preventDefault(); showCapability(capabilityIndex + 1, true); }
     });
+    capabilitySlider.addEventListener("pointerenter", stopCapabilityTimer);
+    capabilitySlider.addEventListener("pointerleave", startCapabilityTimer);
+    capabilitySlider.addEventListener("focusin", stopCapabilityTimer);
+    capabilitySlider.addEventListener("focusout", startCapabilityTimer);
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) stopCapabilityTimer();
+      else startCapabilityTimer();
+    });
     showCapability(0, false);
+    setCapabilityToggle();
+    startCapabilityTimer();
   }
 
   /* Partner logo loop */
